@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: planpal-migrate
+  namespace: planpal
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: planpal
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      containers:
+        - name: migrate
+          image: registry.10-218-65-27.traefik.me/planpal-migrate:dev
+          imagePullPolicy: Always
+          args: ["migrate"]
+          envFrom:
+            - secretRef: { name: planpal-env }
+            - configMapRef: { name: planpal-config }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }

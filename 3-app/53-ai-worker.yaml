@@ -1,0 +1,30 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-worker
+  namespace: planpal
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: ai-worker }
+  template:
+    metadata:
+      labels: { app: ai-worker }
+    spec:
+      serviceAccountName: planpal
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      containers:
+        - name: ai-worker
+          image: registry.10-218-65-27.traefik.me/planpal-ai-worker:dev
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef: { name: planpal-env }
+            - configMapRef: { name: planpal-config }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 512Mi }
+      terminationGracePeriodSeconds: 60

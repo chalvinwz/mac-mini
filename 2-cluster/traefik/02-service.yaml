@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+  namespace: traefik
+  annotations:
+    metallb.io/loadBalancerIPs: 10.218.65.27
+spec:
+  type: LoadBalancer
+  selector: { app: traefik }
+  ports:
+    - { name: web, port: 80, targetPort: web, protocol: TCP }
+    - { name: websecure, port: 443, targetPort: websecure, protocol: TCP }

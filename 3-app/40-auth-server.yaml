@@ -1,0 +1,103 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-server
+  namespace: planpal
+spec:
+  selector: { app: auth-server }
+  ports:
+    - { name: http, port: 8088, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-server
+  namespace: planpal
+spec:
+  selector:
+    matchLabels: { app: auth-server }
+  template:
+    metadata:
+      labels: { app: auth-server }
+    spec:
+      serviceAccountName: planpal
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: auth-server }
+      containers:
+        - name: auth-server
+          image: registry.10-218-65-27.traefik.me/planpal-auth-server:dev
+          imagePullPolicy: Always
+          ports:
+            - { name: http, containerPort: 8088 }
+          envFrom:
+            - secretRef: { name: planpal-env }
+            - configMapRef: { name: planpal-config }
+
+          startupProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+            failureThreshold: 2
+
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 1Gi }
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: auth-server
+  namespace: planpal
+spec:
+  hostnames: [planpal-api.10-218-65-27.traefik.me]
+  parentRefs:
+    - name: traefik-gateway
+      namespace: traefik
+  rules:
+    - matches:
+        - { path: { type: PathPrefix, value: /api/v1/auth } }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /auth }
+      backendRefs:
+        - { name: auth-server, port: 8088 }
+    - matches:
+        - { path: { type: PathPrefix, value: /api/v1/users } }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /users }
+      backendRefs:
+        - { name: auth-server, port: 8088 }
+    - matches:
+        - { path: { type: PathPrefix, value: /api/v1/admin } }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /admin }
+      backendRefs:
+        - { name: auth-server, port: 8088 }
+    - matches:
+        - { path: { type: PathPrefix, value: /api/v1/health } }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /health }
+      backendRefs:
+        - { name: auth-server, port: 8088 }

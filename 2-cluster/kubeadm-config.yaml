@@ -1,0 +1,29 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: 10.218.65.21
+  bindPort: 6443
+nodeRegistration:
+  name: control-plane-01
+  criSocket: unix:///run/containerd/containerd.sock
+  kubeletExtraArgs:
+    - name: node-ip
+      value: 10.218.65.21
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+kubernetesVersion: v1.36.0
+networking:
+  podSubnet: 10.251.0.0/16
+  serviceSubnet: 10.100.0.0/16
+apiServer:
+  certSANs:
+    - 10.218.65.21
+    - control-plane-01
+    - 127.0.0.1
+    - localhost
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+cgroupDriver: systemd
+failSwapOn: false

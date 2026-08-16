@@ -1,0 +1,11 @@
+# Rendered by 3-app/make-secrets.sh from the app repos' .env files. Real credentials.
+3-app/05-secrets.yaml
+
+# Exported from the in-cluster CA in step 20. Public cert, but per-cluster and rebuilt on teardown.
+cluster-ca.crt
+
+# Join files with a live bootstrap token substituted in.
+join-worker-*.yaml
+!2-cluster/join-worker-*.yaml
+
+.DS_Store

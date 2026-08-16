@@ -1,0 +1,14 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: 10.218.65.21:6443
+    token: "<TOKEN>"
+    caCertHashes:
+      - "sha256:<HASH>"
+nodeRegistration:
+  name: worker-02
+  criSocket: unix:///run/containerd/containerd.sock
+  kubeletExtraArgs:
+    - name: node-ip
+      value: 10.218.65.23

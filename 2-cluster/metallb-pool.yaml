@@ -1,0 +1,19 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: cluster-edge
+  namespace: metallb-system
+spec:
+  addresses:
+    - 10.218.65.27-10.218.65.29
+  autoAssign: false
+  avoidBuggyIPs: true
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: cluster-edge
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - cluster-edge

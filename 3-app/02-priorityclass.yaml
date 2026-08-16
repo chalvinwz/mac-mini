@@ -1,0 +1,8 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: planpal-data
+value: 1000000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: "Postgres, Redis and NATS. Evicted last under node pressure; may preempt stateless pods to get scheduled."

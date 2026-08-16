@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: traefik
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: traefik }
+  template:
+    metadata:
+      labels: { app: traefik }
+    spec:
+      serviceAccountName: traefik-controller
+      enableServiceLinks: false
+      containers:
+        - name: traefik
+          image: traefik:v3.7.10
+          args:
+            - --entryPoints.web.address=:8000/tcp
+            - --entryPoints.websecure.address=:8443/tcp
+            - --entryPoints.websecure.http.tls=true
+            - --entryPoints.websecure.transport.respondingTimeouts.readTimeout=0
+            - --entryPoints.web.http.redirections.entryPoint.to=:443
+            - --entryPoints.web.http.redirections.entryPoint.scheme=https
+            - --entryPoints.web.http.redirections.entryPoint.permanent=true
+            - --providers.kubernetesGateway=true
+            - --providers.kubernetesGateway.statusAddress.service.name=traefik
+            - --providers.kubernetesGateway.statusAddress.service.namespace=traefik
+            - --api.dashboard=false
+            - --ping=true
+            - --log.level=INFO
+            - --accesslog=true
+          ports:
+            - { name: web, containerPort: 8000 }
+            - { name: websecure, containerPort: 8443 }
+            - { name: ping, containerPort: 8080 }
+          readinessProbe:
+            httpGet: { path: /ping, port: ping }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /ping, port: ping }
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]

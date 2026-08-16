@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: planpal-config
+  namespace: planpal
+data:
+  APP__NATS__URL: nats://nats:4222
+
+  APP__DATABASE__MAX_CONNECTIONS: "5"
+
+  APP__APP__BASE_URL: https://planpal-api.10-218-65-27.traefik.me
+  APP__APP__FRONTEND_URL: https://planpal.10-218-65-27.traefik.me
+
+  APP__GOOGLE__REDIRECT_URI: https://planpal-api.10-218-65-27.traefik.me/api/v1/auth/google/callback
+  APP__GOOGLE__CALENDAR_REDIRECT_URI: https://planpal-api.10-218-65-27.traefik.me/api/v1/calendars/google/callback

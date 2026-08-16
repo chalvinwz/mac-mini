@@ -1,0 +1,67 @@
+minimumLimaVersion: 2.0.0
+
+base:
+  - template:_images/ubuntu-26.04
+  - template:_default/mounts
+
+vmType: qemu
+
+cpus: 2
+memory: 3GiB
+disk: 40GiB
+
+containerd:
+  system: false
+  user: false
+
+param:
+  nodeIP: "10.218.65.22"
+  prefix: "24"
+  gateway: "10.218.65.1"
+  dns: "103.94.168.168, 8.8.8.8, 1.1.1.1"
+
+networks:
+  - lima: bridged
+    interface: lima0
+
+provision:
+  - mode: data
+    path: /etc/netplan/99-lima0-static.yaml
+    owner: "root:root"
+    permissions: "0600"
+    overwrite: true
+    content: |
+      network:
+        version: 2
+        ethernets:
+          lima0:
+            dhcp4: false
+            dhcp6: false
+            accept-ra: false
+            addresses:
+              - {{.Param.nodeIP}}/{{.Param.prefix}}
+            routes:
+              - to: default
+                via: {{.Param.gateway}}
+                metric: 100
+            nameservers:
+              addresses: [{{.Param.dns}}]
+
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eu -o pipefail
+      want="${PARAM_nodeIP}/${PARAM_prefix}"
+
+      netplan generate
+
+      if ! ip -4 -oneline addr show dev lima0 | grep -qw "$want"; then
+        netplan apply
+        for _ in $(seq 1 20); do
+          ip -4 -oneline addr show dev lima0 | grep -qw "$want" && break
+          sleep 1
+        done
+      fi
+
+      ip -4 -oneline addr show dev lima0 | grep -qw "$want"
+      ip -4 -oneline addr show dev eth0  | grep -qw '192.168.5.15/24'

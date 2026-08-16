@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: planpal-seed-admin
+  namespace: planpal
+spec:
+  # `kubectl apply -f app/` starts this and planpal-migrate at the same instant with no
+  # ordering between them, so seed-admin routinely runs before the schema exists and fails
+  # on a missing `users` table. With backoffLimit 2 the retries span roughly 30 seconds —
+  # shorter than migrate takes once an image pull is involved — and the Job gives up
+  # permanently. Kubernetes caps Job backoff at 6 minutes per retry, so 10 attempts
+  # comfortably outlast migrate and make the apply self-healing in either order.
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: planpal
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      containers:
+        - name: seed-admin
+          image: registry.10-218-65-27.traefik.me/planpal-migrate:dev
+          imagePullPolicy: Always
+          args: ["seed-admin"]
+          envFrom:
+            - secretRef: { name: planpal-env }
+            - secretRef: { name: planpal-seed-admin }
+            - configMapRef: { name: planpal-config }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }

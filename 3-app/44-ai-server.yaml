@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-server
+  namespace: planpal
+spec:
+  selector: { app: ai-server }
+  ports:
+    - { name: http, port: 8088, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-server
+  namespace: planpal
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ai-server }
+  template:
+    metadata:
+      labels: { app: ai-server }
+    spec:
+      serviceAccountName: planpal
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      containers:
+        - name: ai-server
+          image: registry.10-218-65-27.traefik.me/planpal-ai-server:dev
+          imagePullPolicy: Always
+          ports:
+            - { name: http, containerPort: 8088 }
+          envFrom:
+            - secretRef: { name: planpal-env }
+            - configMapRef: { name: planpal-config }
+          startupProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket: { port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+            failureThreshold: 2
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 768Mi }
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ai-server
+  namespace: planpal
+spec:
+  hostnames: [planpal-api.10-218-65-27.traefik.me]
+  parentRefs:
+    - name: traefik-gateway
+      namespace: traefik
+  rules:
+    - matches:
+        - { path: { type: PathPrefix, value: /api/v1/ai } }
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path: { type: ReplacePrefixMatch, replacePrefixMatch: /ai }
+      backendRefs:
+        - { name: ai-server, port: 8088 }
