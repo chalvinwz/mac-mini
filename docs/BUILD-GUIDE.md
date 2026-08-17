@@ -156,7 +156,6 @@ underneath usually names the cause. The Troubleshooting table at the end is inde
 | `2-cluster/traefik/` | RBAC, Deployment, Service, GatewayClass and Gateway |
 | `2-cluster/registry.yaml` | In-cluster image registry and its route |
 | `3-app/` | The example application, ~20 numbered manifests |
-| `3-app/make-secrets.sh` | Renders `3-app/05-secrets.yaml` from the app repos' `.env` files |
 | `3-app/secrets.example.yaml.tpl` | Reference showing every key the application needs |
 
 ### Versions
@@ -1344,22 +1343,28 @@ cd "$REPO"
 
 ---
 
-## 26. Render the Secret
+## 26. Place the Secret
 
-The application's credentials are not in this repository. `3-app/make-secrets.sh` renders
-`3-app/05-secrets.yaml` from the two source repositories' `.env` files. Both the inputs and the
-output are gitignored.
+The application's credentials are not in this repository. `3-app/05-secrets.yaml` is a static file
+handed over out of band by whoever holds the credentials — it is gitignored and never committed, so
+a fresh clone does not have it.
 
-Copy each repository's `.env.example` to `.env` and fill it in first. The script refuses to run on
-a missing file and reports any value that still looks like a placeholder. It prints key *names*
-only, never values.
+Drop it in at `3-app/05-secrets.yaml` and restrict the mode. Anything that leaves it group- or
+world-readable is a credentials file readable by every process running as another user on that
+machine.
 
 ```bash
-bash 3-app/make-secrets.sh
+chmod 600 3-app/05-secrets.yaml && ls -l 3-app/05-secrets.yaml
 ```
 
 `3-app/secrets.example.yaml.tpl` is the committed reference showing every key the application
-expects and what each is for.
+expects and what each is for. It carries a `.tpl` suffix rather than `.yaml` on purpose: step 27
+applies the whole directory, and `kubectl` reads only `.yaml`, `.yml` and `.json` from one — so the
+placeholder file cannot be applied by accident and overwrite live credentials with `ChangeMe`.
+
+Placing nothing at all is the quieter failure. Step 27 still reports success, because the Deployments
+apply fine; their pods then sit in `CreateContainerConfigError` because the Secret they reference
+does not exist. Check the file is there before applying, not after.
 
 Two values are worth checking rather than assuming, because both have caused a failed deployment:
 

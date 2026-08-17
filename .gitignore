@@ -1,4 +1,4 @@
-# Rendered by 3-app/make-secrets.sh from the app repos' .env files. Real credentials.
+# Real credentials, handed over out of band. See 3-app/secrets.example.yaml.tpl for the keys.
 3-app/05-secrets.yaml
 
 # Exported from the in-cluster CA in step 20. Public cert, but per-cluster and rebuilt on teardown.

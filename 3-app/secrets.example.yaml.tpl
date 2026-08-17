@@ -1,5 +1,5 @@
-# Template only. Never applied directly — `3-app/make-secrets.sh` renders the real
-# 3-app/05-secrets.yaml from the two .env files.
+# Reference only — every key the application expects, with placeholder values. The real
+# 3-app/05-secrets.yaml is a static file handed over out of band and is gitignored.
 #
 # The .tpl suffix is deliberate: `kubectl apply -f 3-app/` reads only .yaml/.yml/.json,
 # so this file cannot be applied by accident and overwrite real credentials with ChangeMe.

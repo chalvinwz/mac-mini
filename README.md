@@ -31,9 +31,9 @@ chase a failure that is really just a command typed in the wrong terminal.
 | Machine | What lives on it | What it does |
 |---|---|---|
 | 🖥️ **Mac mini** — `10.218.65.20`, account `ladmin` | This repo only | Runs Lima and the three VMs. Builds the cluster, Parts 1–4. No Docker, no application source |
-| 💻 **MacBook** | This repo **plus** `planpal-backend-learner7-ch4` and `planpal-frontend-learner7-ch4` | Runs Docker. Builds and pushes the images, renders the Secret, deploys the app, Part 5 |
+| 💻 **MacBook** | This repo **plus** `planpal-backend-learner7-ch4` and `planpal-frontend-learner7-ch4` | Runs Docker. Builds and pushes the images, deploys the app, Part 5 |
 
-The Mac mini never sees the application source or the `.env` files. The MacBook never runs
+The Mac mini never sees the application source. The MacBook never runs
 `limactl`. Both run `kubectl` against the same cluster.
 
 A few commands are tagged 🖥️ **Mac mini** but end with `limactl shell <node> -- …` — you type them
@@ -89,7 +89,7 @@ Nothing else is needed up front — step 0 installs Homebrew and clones this rep
 - **Docker already installed and running** — OrbStack or Docker Desktop, either is fine. Both run
   the daemon inside a Linux VM and both read registry CAs from `~/.docker/certs.d`, so nothing
   below changes between them. The mini does not need Docker at all
-- All three repos side by side. `make-secrets.sh` and the image builds both depend on this layout:
+- All three repos side by side. The image builds depend on this layout:
 
 ```
 your-workdir/
@@ -106,8 +106,8 @@ git clone git@github.com:chalvinwz/mac-mini.git && cd mac-mini
 
 ### Re-running steps
 
-Almost everything here is safe to run twice — `kubectl apply`, `node-prep.sh`, `make-secrets.sh`,
-the image builds, and all of step 0 are written to be idempotent. Four are not:
+Almost everything here is safe to run twice — `kubectl apply`, `node-prep.sh`, the image builds,
+and all of step 0 are written to be idempotent. Four are not:
 
 | Step | Re-running it | What to do instead |
 |---|---|---|
@@ -802,20 +802,26 @@ Traefik's `readTimeout` — see the guide.
 cd "$REPO"
 ```
 
-## 25. Render the Secret
+## 25. Place the Secret
 
-`make-secrets.sh` reads the two `.env` files from the sibling repos and writes
-`3-app/05-secrets.yaml` (mode 600, gitignored). It prints key *names* only, never values.
+The application's credentials are not in this repository. `3-app/05-secrets.yaml` is a static file
+you get from the repo owner out of band — it is gitignored and never committed.
+
+Put it at `3-app/05-secrets.yaml`, then lock the mode down. Step 26 applies the whole directory and
+picks it up by filename order.
 
 💻 **MacBook**
 
 ```bash
-bash 3-app/make-secrets.sh
+chmod 600 3-app/05-secrets.yaml && ls -l 3-app/05-secrets.yaml
 ```
 
-It exits non-zero on a missing required key, and lists any value still shaped like a placeholder.
+If that file is missing, step 26 still succeeds — but every pod that mounts it sits in
+`CreateContainerConfigError` with no other clue.
 
-`3-app/secrets.example.yaml.tpl` is the committed reference for every key and what it is for.
+`3-app/secrets.example.yaml.tpl` is the committed reference for every key and what it is for. It
+carries the `.tpl` suffix on purpose: `kubectl apply -f 3-app/` reads only `.yaml`/`.yml`/`.json`,
+so it can never be applied by accident and overwrite live credentials with `ChangeMe`.
 
 ## 26. Deploy
 
@@ -908,7 +914,7 @@ Manifests set `imagePullPolicy: Always`, so the restart picks up the new push.
 **Change a hostname or the API URL.** Rebuild and push `planpal-web` — the frontend has it baked
 in. The Rust services only need a `rollout restart`.
 
-**Rotate a credential.** 💻 On the MacBook: edit the `.env`, re-run `make-secrets.sh`,
+**Rotate a credential.** 💻 On the MacBook: edit `3-app/05-secrets.yaml`,
 `kubectl apply -f 3-app/`, then `rollout restart` the affected workloads. Note `POSTGRES_PASSWORD`
 is read **only when the data directory is empty** — changing it on a running database does nothing
 without an `ALTER ROLE`.
@@ -947,7 +953,8 @@ split by part. A few that come up most:
 | Frontend calls the wrong API host | MacBook | Web image built with a stale `NEXT_PUBLIC_API_URL`. Rebuild and push |
 | HPA `TARGETS` stuck at `<unknown>` | mini | metrics-server not serving, or a container has no CPU request |
 | All pods `Running`, nothing gets processed | either | JetStream stream lost. `kubectl -n planpal rollout restart deploy` |
-| `make-secrets.sh`: missing env file | MacBook | The three repos are not siblings. Check `ls "$SRC"` |
+| Pods stuck `CreateContainerConfigError` | MacBook | `3-app/05-secrets.yaml` was never placed, so the Secret it references does not exist |
+| `docker build`: no such file or directory | MacBook | The three repos are not siblings. Check `ls "$SRC"` |
 | `scp`: `Permission denied` or connection refused | MacBook | Remote Login off on the mini, or `ladmin` is not the account's short name. Run `whoami` on the mini to confirm |
 | `limactl list` empty, but the cluster still answers | mini | Logged in as someone other than `ladmin`. Lima keeps the VMs in that account's `~/.lima` |
 
@@ -961,7 +968,7 @@ The full teardown procedure — four levels, least to most destructive — is at
 |---|---|
 | `1-lima/` | Three VM definitions and `node-prep.sh`, which runs inside each guest |
 | `2-cluster/` | kubeadm config, join files, Calico, MetalLB, cert-manager, Traefik, the registry |
-| `3-app/` | PlanPal — 23 numbered manifests, plus `make-secrets.sh` and the secrets reference |
+| `3-app/` | PlanPal — 23 numbered manifests, plus the secrets reference |
 | `docs/BUILD-GUIDE.md` | The full build with every decision explained, and the troubleshooting index |
 
 Versions are pinned deliberately: Kubernetes v1.36.0, Ubuntu 26.04, Calico v3.31.0, MetalLB
